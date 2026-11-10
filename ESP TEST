@@ -1,23 +1,17 @@
 --[[
-    ESP Highlight + Drawing Auto - HoangOggy
-    - Tự động bật khi chạy, không menu, chỉ màu trắng.
-    - Highlight (viền cơ thể) + vòng tròn (không giới hạn) => hiện toàn bộ server.
-    - Đã bỏ chấm tròn ở đầu, chỉ giữ vòng tròn viền.
+    ESP Highlight Auto - HoangOggy
+    - Tự động bật khi chạy, không menu.
+    - Chỉ dùng Highlight viền trắng bao quanh cơ thể.
+    - Không có vòng tròn hay chấm nào trên đầu.
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 local WHITE = Color3.fromRGB(255, 255, 255)
-
 local espHighlights = {}
-local espDrawings = {}
 
---------------------------------------------------
--- HIGHLIGHT (viền trắng cơ thể)
---------------------------------------------------
 local function clearHighlight(plr)
     if espHighlights[plr] then
         espHighlights[plr]:Destroy()
@@ -42,39 +36,8 @@ local function createHighlight(plr, char)
     espHighlights[plr] = hl
 end
 
---------------------------------------------------
--- DRAWING (chỉ vòng tròn viền, không có chấm)
---------------------------------------------------
-local function clearDrawings(plr)
-    if espDrawings[plr] then
-        for _, obj in pairs(espDrawings[plr]) do
-            pcall(function() obj:Remove() end)
-        end
-        espDrawings[plr] = nil
-    end
-end
-
-local function createDrawings(plr)
-    if espDrawings[plr] or plr == LocalPlayer then return end
-
-    local ring = Drawing.new("Circle")
-    ring.Radius = 9
-    ring.Filled = false
-    ring.Color = WHITE
-    ring.Transparency = 1
-    ring.Thickness = 1.5
-    ring.NumSides = 32
-    ring.Visible = false
-
-    espDrawings[plr] = { ring = ring }
-end
-
---------------------------------------------------
--- SETUP
---------------------------------------------------
 local function setupPlayer(plr)
     if plr == LocalPlayer then return end
-    createDrawings(plr)
     if plr.Character then
         createHighlight(plr, plr.Character)
     end
@@ -87,27 +50,18 @@ end
 Players.PlayerAdded:Connect(setupPlayer)
 Players.PlayerRemoving:Connect(function(plr)
     clearHighlight(plr)
-    clearDrawings(plr)
 end)
 
 for _, plr in ipairs(Players:GetPlayers()) do
     setupPlayer(plr)
 end
 
---------------------------------------------------
--- UPDATE MỖI FRAME
---------------------------------------------------
 RunService.RenderStepped:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
-            local char = plr.Character
-            local head = char:FindFirstChild("Head")
-            local hum = char:FindFirstChild("Humanoid")
-
-            -- 1) Highlight: cưỡng chế & tạo lại nếu mất
             local hl = espHighlights[plr]
-            if not hl or not hl.Parent or hl.Parent ~= char then
-                createHighlight(plr, char)
+            if not hl or not hl.Parent or hl.Parent ~= plr.Character then
+                createHighlight(plr, plr.Character)
             else
                 hl.Enabled = true
                 hl.FillColor = WHITE
@@ -115,25 +69,6 @@ RunService.RenderStepped:Connect(function()
                 hl.FillTransparency = 0.7
                 hl.OutlineTransparency = 0.1
                 hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            end
-
-            -- 2) Vòng tròn viền: hiện với TẤT CẢ người chơi
-            local objs = espDrawings[plr]
-            if not objs then
-                createDrawings(plr)
-                objs = espDrawings[plr]
-            end
-
-            if objs and head and hum and hum.Health > 0 then
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen and pos.Z > 0 then
-                    objs.ring.Position = Vector2.new(pos.X, pos.Y)
-                    objs.ring.Visible = true
-                else
-                    objs.ring.Visible = false
-                end
-            elseif objs then
-                objs.ring.Visible = false
             end
         end
     end
