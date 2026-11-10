@@ -1,8 +1,8 @@
 --[[
     ESP Highlight + Drawing Auto - HoangOggy
     - Tự động bật khi chạy, không menu, chỉ màu trắng.
-    - Dùng Highlight (giới hạn ~31) + Drawing dot/vòng tròn (không giới hạn)
-    => Hiện TOÀN BỘ người chơi trong server.
+    - Highlight (viền cơ thể) + vòng tròn (không giới hạn) => hiện toàn bộ server.
+    - Đã bỏ chấm tròn ở đầu, chỉ giữ vòng tròn viền.
 ]]
 
 local Players = game:GetService("Players")
@@ -43,7 +43,7 @@ local function createHighlight(plr, char)
 end
 
 --------------------------------------------------
--- DRAWING (dot + vòng tròn, không giới hạn)
+-- DRAWING (chỉ vòng tròn viền, không có chấm)
 --------------------------------------------------
 local function clearDrawings(plr)
     if espDrawings[plr] then
@@ -57,20 +57,6 @@ end
 local function createDrawings(plr)
     if espDrawings[plr] or plr == LocalPlayer then return end
 
-    local objs = {}
-
-    -- Vòng tròn đặc nhỏ ở đầu
-    local dot = Drawing.new("Circle")
-    dot.Radius = 4
-    dot.Filled = true
-    dot.Color = WHITE
-    dot.Transparency = 1
-    dot.Thickness = 1
-    dot.NumSides = 16
-    dot.Visible = false
-    objs.dot = dot
-
-    -- Vòng tròn viền ngoài (dễ thấy từ xa)
     local ring = Drawing.new("Circle")
     ring.Radius = 9
     ring.Filled = false
@@ -79,9 +65,8 @@ local function createDrawings(plr)
     ring.Thickness = 1.5
     ring.NumSides = 32
     ring.Visible = false
-    objs.ring = ring
 
-    espDrawings[plr] = objs
+    espDrawings[plr] = { ring = ring }
 end
 
 --------------------------------------------------
@@ -132,7 +117,7 @@ RunService.RenderStepped:Connect(function()
                 hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             end
 
-            -- 2) Drawing dot + ring: hiện với TẤT CẢ người chơi
+            -- 2) Vòng tròn viền: hiện với TẤT CẢ người chơi
             local objs = espDrawings[plr]
             if not objs then
                 createDrawings(plr)
@@ -142,17 +127,12 @@ RunService.RenderStepped:Connect(function()
             if objs and head and hum and hum.Health > 0 then
                 local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen and pos.Z > 0 then
-                    local screenPos = Vector2.new(pos.X, pos.Y)
-                    objs.dot.Position = screenPos
-                    objs.dot.Visible = true
-                    objs.ring.Position = screenPos
+                    objs.ring.Position = Vector2.new(pos.X, pos.Y)
                     objs.ring.Visible = true
                 else
-                    objs.dot.Visible = false
                     objs.ring.Visible = false
                 end
             elseif objs then
-                objs.dot.Visible = false
                 objs.ring.Visible = false
             end
         end
