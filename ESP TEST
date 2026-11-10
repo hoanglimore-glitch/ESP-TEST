@@ -1,0 +1,160 @@
+--[[
+    ESP Highlight + Drawing Auto - HoangOggy
+    - Tự động bật khi chạy, không menu, chỉ màu trắng.
+    - Dùng Highlight (giới hạn ~31) + Drawing dot/vòng tròn (không giới hạn)
+    => Hiện TOÀN BỘ người chơi trong server.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local WHITE = Color3.fromRGB(255, 255, 255)
+
+local espHighlights = {}
+local espDrawings = {}
+
+--------------------------------------------------
+-- HIGHLIGHT (viền trắng cơ thể)
+--------------------------------------------------
+local function clearHighlight(plr)
+    if espHighlights[plr] then
+        espHighlights[plr]:Destroy()
+        espHighlights[plr] = nil
+    end
+end
+
+local function createHighlight(plr, char)
+    clearHighlight(plr)
+    if plr == LocalPlayer then return end
+    if not char or not char.Parent or not char:FindFirstChild("Humanoid") then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "OggyESP"
+    hl.FillColor = WHITE
+    hl.OutlineColor = WHITE
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0.1
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Enabled = true
+    hl.Parent = char
+    espHighlights[plr] = hl
+end
+
+--------------------------------------------------
+-- DRAWING (dot + vòng tròn, không giới hạn)
+--------------------------------------------------
+local function clearDrawings(plr)
+    if espDrawings[plr] then
+        for _, obj in pairs(espDrawings[plr]) do
+            pcall(function() obj:Remove() end)
+        end
+        espDrawings[plr] = nil
+    end
+end
+
+local function createDrawings(plr)
+    if espDrawings[plr] or plr == LocalPlayer then return end
+
+    local objs = {}
+
+    -- Vòng tròn đặc nhỏ ở đầu
+    local dot = Drawing.new("Circle")
+    dot.Radius = 4
+    dot.Filled = true
+    dot.Color = WHITE
+    dot.Transparency = 1
+    dot.Thickness = 1
+    dot.NumSides = 16
+    dot.Visible = false
+    objs.dot = dot
+
+    -- Vòng tròn viền ngoài (dễ thấy từ xa)
+    local ring = Drawing.new("Circle")
+    ring.Radius = 9
+    ring.Filled = false
+    ring.Color = WHITE
+    ring.Transparency = 1
+    ring.Thickness = 1.5
+    ring.NumSides = 32
+    ring.Visible = false
+    objs.ring = ring
+
+    espDrawings[plr] = objs
+end
+
+--------------------------------------------------
+-- SETUP
+--------------------------------------------------
+local function setupPlayer(plr)
+    if plr == LocalPlayer then return end
+    createDrawings(plr)
+    if plr.Character then
+        createHighlight(plr, plr.Character)
+    end
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.1)
+        createHighlight(plr, char)
+    end)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+Players.PlayerRemoving:Connect(function(plr)
+    clearHighlight(plr)
+    clearDrawings(plr)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    setupPlayer(plr)
+end
+
+--------------------------------------------------
+-- UPDATE MỖI FRAME
+--------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local char = plr.Character
+            local head = char:FindFirstChild("Head")
+            local hum = char:FindFirstChild("Humanoid")
+
+            -- 1) Highlight: cưỡng chế & tạo lại nếu mất
+            local hl = espHighlights[plr]
+            if not hl or not hl.Parent or hl.Parent ~= char then
+                createHighlight(plr, char)
+            else
+                hl.Enabled = true
+                hl.FillColor = WHITE
+                hl.OutlineColor = WHITE
+                hl.FillTransparency = 0.7
+                hl.OutlineTransparency = 0.1
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            end
+
+            -- 2) Drawing dot + ring: hiện với TẤT CẢ người chơi
+            local objs = espDrawings[plr]
+            if not objs then
+                createDrawings(plr)
+                objs = espDrawings[plr]
+            end
+
+            if objs and head and hum and hum.Health > 0 then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen and pos.Z > 0 then
+                    local screenPos = Vector2.new(pos.X, pos.Y)
+                    objs.dot.Position = screenPos
+                    objs.dot.Visible = true
+                    objs.ring.Position = screenPos
+                    objs.ring.Visible = true
+                else
+                    objs.dot.Visible = false
+                    objs.ring.Visible = false
+                end
+            elseif objs then
+                objs.dot.Visible = false
+                objs.ring.Visible = false
+            end
+        end
+    end
+end)
